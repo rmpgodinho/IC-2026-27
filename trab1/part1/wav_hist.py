@@ -15,11 +15,11 @@ try:
 except FileNotFoundError:
     print(f"Erro: o ficheiro '{args.file}' não existe")
     sys.exit(1)
-except ValueError:
+except ValueError: # vê mesmo o cabeçalho em sim ent desde que esteja lá wav tá chill
     print(f"Erro: '{args.file}' não é um ficheiro WAV válido")
     sys.exit(1)
 
-if data.ndim > 1 and data.shape[1] > 2:
+if data.ndim > 1 and data.shape[1] > 2:     # mono passsa logo 
     print("Erro: só são suportados ficheiros mono ou estéreo")
     sys.exit(1)
 if data.shape[0] == 0:
@@ -40,7 +40,7 @@ def mid_side(left, right):
 
 def reconstruct(mid, side, parity):
     # para reconstituir o canal
-    left = mid + side + parity
+    left = mid + side + parity          # aqui porque a sub anulam-se, mas na adição elas disfarça ent tenho que meter explicito
     right = mid - side
     return left, right
 
@@ -56,7 +56,7 @@ def main():
         right_channel = data[:, 1].astype(np.int32)
         mid_channel, side_channel = mid_side(left_channel, right_channel)
 
-        parity = (left_channel - right_channel) % 2
+        parity = (left_channel - right_channel) % 2     # na divisão resto perde-se, ent precisamos de adicionar esse 1
         re_left, re_right = reconstruct(mid_channel, side_channel, parity)
         assert np.array_equal(re_left, left_channel) and np.array_equal(re_right, right_channel)
 
@@ -71,9 +71,9 @@ def main():
         plot_hist(axs[1, 1], side_channel,  bin_range, "Canal Side (L - R) / 2", "magenta")
 
     else:
-        mono = data
+        mono = data.astype(np.int32)
         bin_range = np.arange(mono.min(), mono.max() + group_size, group_size)
-        plot_hist(plt.gca(), mono, bin_range, "Canal Mid (Áudio Mono)", "blue")
+        plot_hist(plt.gca(), mono, bin_range, "Canal Mono", "blue")
 
     plt.tight_layout()
     plt.show()

@@ -70,7 +70,7 @@ if D0 + A >= N:
 
 
 if data.ndim == 1:
-    data = data.reshape(-1, 1)
+    data = data.reshape(-1, 1)      # faz passar o mono por um de mais canais
 
 
 def echo(x, d, g):
@@ -81,7 +81,7 @@ def echo(x, d, g):
 def mult_echo(x, d, g, ):
     y = x.copy()
     for k in range(d, len(x), d):
-        end = min(k + d, len(x))
+        end = min(k + d, len(x))            # caso o ultmo bloco ser menor caso o audio não ter um numero exato de blcos
         y[k:end]  += g * y[k - d:end - d]
     return y
 
@@ -91,13 +91,13 @@ def am(x, f, n, rate):
     return y
 
 def tv_delay(x, D0, A, f, g, n, rate):
-    p = np.sin((2*np.pi*f*(n/rate)))
+    p = np.sin((2*np.pi*f*(n/rate)))    # y(n) = x(n) + g · x(n − D(n)),  com  D(n) = D0 + A · sin(2π f n / fs)
     D = D0 + A * p
-    i = np.around(n- D).astype(int)
-    valid = i >= 0
+    i = np.around(n- D).astype(int) # o indice que vai para o segundo x(), esta coisa td porque D é não int
+    valid = i >= 0          # evita o caso em que estamos no início do file e não há audio pras essas amostras
 
-    y = x.astype(np.float64)
-    y[valid] = x[valid] + g * x[i[valid]]
+    y = x.copy()
+    y[valid] = x[valid] + g * x[i[valid]]       # instante válido do passado
     return y
 
 
@@ -105,13 +105,13 @@ def apply(effect, data, *params):
     channels = []
     for c in range(data.shape[1]):
         x = data[:, c].astype(np.float64)
-        channels.append(effect(x, *params))
-    return np.column_stack(channels)
+        channels.append(effect(x, *params)) 
+    return np.column_stack(channels)            # junta como coluna a coluna 
 
 
 
 def save(name, sig):
-    wavfile.write(name, rate, np.clip(np.round(sig), -32768, 32767).astype(np.int16))
+    wavfile.write(name, rate, np.clip(np.round(sig), -32768, 32767).astype(np.int16))       # arredonda pra int, corta pros 16 bits e converte pro tipo
 
 def main():
     base = os.path.splitext(args.file)[0]
