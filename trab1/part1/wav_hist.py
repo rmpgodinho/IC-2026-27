@@ -1,57 +1,81 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.io import wavfile
+import argparse
+import sys
 
-rate, data = wavfile.read("sample07.wav")
 
-k = 3
+parser = argparse.ArgumentParser(description="Histogramas de um ficheiro WAV")
+parser.add_argument("file", type=str)
+parser.add_argument("--k",  type=int, default=3)
+args = parser.parse_args()
+
+try:
+    rate, data = wavfile.read(args.file)
+except FileNotFoundError:
+    print(f"Erro: o ficheiro '{args.file}' não existe")
+    sys.exit(1)
+except ValueError:
+    print(f"Erro: '{args.file}' não é um ficheiro WAV válido")
+    sys.exit(1)
+
+if data.ndim > 1 and data.shape[1] > 2:
+    print("Erro: só são suportados ficheiros mono ou estéreo")
+    sys.exit(1)
+if data.shape[0] == 0:
+    print("Erro: o ficheiro não tem amostras")
+    sys.exit(1)
+
+k = args.k
+if not (0 <= k < 16):
+    print("Erro: k tem de estar entre 0 e 15")
+    sys.exit(1)
 group_size = 2**k
 
-if len(data.shape) > 1 and data.shape[1] == 2:
-    left_channel = data[:, 0].astype(np.int32)
-    right_channel = data[:, 1].astype(np.int32)
-    mid_channel = (left_channel+right_channel)//2
-    side_channel = (left_channel-right_channel)//2
 
+def mid_side(left, right):
+    mid = (left + right) // 2
+    side = (left - right) // 2
+    return mid, side
+
+def reconstruct(mid, side, parity):
     # para reconstituir o canal
-    parity = (left_channel-right_channel) % 2
-    re_left = mid_channel+side_channel + parity
-    re_right = mid_channel-side_channel
+    left = mid + side + parity
+    right = mid - side
+    return left, right
 
-    min_val = min(left_channel.min(), right_channel.min(), mid_channel.min(), side_channel.min())
-    max_val = max(left_channel.max(), right_channel.max(), mid_channel.max(), side_channel.max())
-    bin_range = np.arange(min_val, max_val+group_size, group_size)
+def plot_hist(ax, x, bins, title, color):
+    ax.hist(x, bins=bins, color=color, alpha=0.7)
+    ax.set_title(title)
+    ax.set_xlabel("Amplitude")
 
-    fig, axs = plt.subplots(2, 2, figsize=(12, 10))
 
-    axs[0, 0].hist(left_channel, bins=bin_range, color="blue", alpha=0.7)
-    axs[0, 0].set_title("Canal Esquerdo (Left)")
-    axs[0, 0].set_xlabel("Amplitude")
+def main():
+    if data.ndim > 1 and data.shape[1] == 2:
+        left_channel = data[:, 0].astype(np.int32)
+        right_channel = data[:, 1].astype(np.int32)
+        mid_channel, side_channel = mid_side(left_channel, right_channel)
 
-    axs[0, 1].hist(right_channel, bins=bin_range, color="red", alpha=0.7)
-    axs[0, 1].set_title("Canal Direito (Right)")
-    axs[0, 1].set_xlabel("Amplitude")
+        parity = (left_channel - right_channel) % 2
+        re_left, re_right = reconstruct(mid_channel, side_channel, parity)
+        assert np.array_equal(re_left, left_channel) and np.array_equal(re_right, right_channel)
 
-    axs[1, 0].hist(mid_channel, bins=bin_range, color="green", alpha=0.7)
-    axs[1, 0].set_title("Canal Mid (L + R) / 2")
-    axs[1, 0].set_xlabel("Amplitude")
+        min_val = min(left_channel.min(), right_channel.min(), mid_channel.min(), side_channel.min())
+        max_val = max(left_channel.max(), right_channel.max(), mid_channel.max(), side_channel.max())
+        bin_range = np.arange(min_val, max_val + group_size, group_size)
 
-    axs[1, 1].hist(side_channel, bins=bin_range, color="magenta", alpha=0.7)
-    axs[1, 1].set_title("Canal Side (L - R) / 2")
-    axs[1, 1].set_xlabel("Amplitude")
+        fig, axs = plt.subplots(2, 2, figsize=(12, 10))
+        plot_hist(axs[0, 0], left_channel,  bin_range, "Canal Esquerdo (Left)", "blue")
+        plot_hist(axs[0, 1], right_channel, bin_range, "Canal Direito (Right)", "red")
+        plot_hist(axs[1, 0], mid_channel,   bin_range, "Canal Mid (L + R) / 2", "green")
+        plot_hist(axs[1, 1], side_channel,  bin_range, "Canal Side (L - R) / 2", "magenta")
+
+    else:
+        mono = data
+        bin_range = np.arange(mono.min(), mono.max() + group_size, group_size)
+        plot_hist(plt.gca(), mono, bin_range, "Canal Mid (Áudio Mono)", "blue")
 
     plt.tight_layout()
     plt.show()
-    
-else:
-    left_channel = data
-    mid_channel = left_channel
 
-    min_val = left_channel.min()
-    max_val = left_channel.max()
-    bin_range = np.arange(min_val, max_val+group_size, group_size)
-
-
-    plt.hist(mid_channel, bins=bin_range, color="blue", alpha=0.7)
-    plt.title("Canal Mid (Áudio Mono)")
-    plt.show()
+main()
